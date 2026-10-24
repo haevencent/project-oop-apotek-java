@@ -2,30 +2,21 @@ public class Pengguna {
     private String idUser;
     private String username;
     private String password;
-    private boolean isLogin;
+
 
     public Pengguna(String idUser, String username, String password) {
         this.idUser = idUser;
         this.username = username;
         this.password = password;
-        this.isLogin = false;
     }
 
-    public boolean login(String inputUsername, String inputPassword) {
-        if (this.username.equals(inputUsername) && this.password.equals(inputPassword)) {
-            this.isLogin = true;
-            System.out.println("Login berhasil, Selamat Datang! " + this.username);
-            return true;
-        } else {
-            System.out.println("Login gagal, Username atau password salah.");
-            return false;
-        }
-    }
+  
+    public String getIdUser() { return idUser; }
+    public void setIdUser(String idUser) { this.idUser = idUser; }
 
-    public void logout() {
-        this.isLogin = false;
-        System.out.println(this.username + " telah logout.");
-    }
-    
     public String getUsername() { return username; }
+    public void setUsername(String username) { this.username = username; }
+
+    public String getPassword() { return password; }
+    public void setPassword(String password) { this.password = password; }
 }
