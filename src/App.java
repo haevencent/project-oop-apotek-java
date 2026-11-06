@@ -3,6 +3,8 @@ import java.sql.*;
 public class App {
     public static void main(String[] args) {
         String url = System.getenv("DB_URL");
+
+        try (Connection con = DriverManager.getConnection(url)) {
             tampilkanTabelObat(con);
             tampilkanTabelBatch(con);
             tampilkanTabelPengguna(con);
