@@ -1,27 +1,13 @@
 public class Obat {
-    private String idObat;
-    private String namaObat;
-    private double harga;
-    private int stok;
+    public String idObat;
+    public String namaObat;
+    public double harga;
+    public boolean butuhResep;
 
-    // Constructor
-    public Obat(String idObat, String namaObat, double harga, int stok) {
+    public Obat(String idObat, String namaObat, double harga, boolean butuhResep) {
         this.idObat = idObat;
         this.namaObat = namaObat;
         this.harga = harga;
-        this.stok = stok;
+        this.butuhResep = butuhResep;
     }
-
-    // Getter dan Setter
-    public String getIdObat() { return idObat; }
-    public void setIdObat(String idObat) { this.idObat = idObat; }
-
-    public String getNamaObat() { return namaObat; }
-    public void setNamaObat(String namaObat) { this.namaObat = namaObat; }
-
-    public double getHarga() { return harga; }
-    public void setHarga(double harga) { this.harga = harga; }
-
-    public int getStok() { return stok; }
-    public void setStok(int stok) { this.stok = stok; }
 }
