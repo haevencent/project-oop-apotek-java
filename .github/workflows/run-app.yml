@@ -1,10 +1,10 @@
-name: Run App
+name: Build Check
 on:
   push:
   workflow_dispatch:
 
 jobs:
-  run:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -13,8 +13,4 @@ jobs:
           distribution: temurin
           java-version: '21'
       - name: Compile
-        run: javac -d out -cp "lib/*" src/model/*.java src/App.java
-      - name: Run
-        env:
-          DB_URL: ${{ secrets.DB_URL }}
-        run: java -cp "out:lib/*" App
+        run: javac -d out -cp "lib/*" src/model/*.java src/dao/*.java src/App.java

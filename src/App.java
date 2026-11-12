@@ -1,106 +1,78 @@
-import java.sql.*;
+import dao.PenggunaDAO;
+import java.sql.SQLException;
+import java.util.Scanner;
+import model.Pengguna;
 
 public class App {
     public static void main(String[] args) {
-        String url = System.getenv("DB_URL");
+        Scanner scanner = new Scanner(System.in);
+        PenggunaDAO penggunaDAO = new PenggunaDAO();
+        Pengguna kasirAktif = null;
 
-        try (Connection con = DriverManager.getConnection(url)) {
-            tampilkanTabelObat(con);
-            tampilkanTabelBatch(con);
-            tampilkanTabelPengguna(con);
-            tampilkanTabelTransaksi(con);
-            tampilkanTabelDetail(con);
-        } catch (SQLException ex) {
-            System.err.println("Akses database gagal: " + ex.getSQLState());
-        }
-    }
+        System.out.println("==========================================");
+        System.out.println("        SISTEM POS APOTEK - LOGIN         ");
+        System.out.println("==========================================");
 
-    static void tampilkanTabelObat(Connection con) throws SQLException {
-        System.out.println("=============== TABEL OBAT ===============");
-        String f = "| %-10s | %-20s | %-10s | %-11s |%n";
-        System.out.printf(f, "id_obat", "nama_obat", "harga", "butuh_resep");
+        int percobaan = 0;
+        final int MAKS_PERCOBAAN = 3;
 
-        try (PreparedStatement ps = con.prepareStatement("SELECT * FROM apotek.obat");
-             ResultSet rs = ps.executeQuery()) {
-            while (rs.next()) {
-                System.out.printf(f,
-                        rs.getString("id_obat"),
-                        rs.getString("nama_obat"),
-                        rs.getDouble("harga"),
-                        rs.getBoolean("butuh_resep"));
+        while (percobaan < MAKS_PERCOBAAN && kasirAktif == null) {
+            System.out.print("Username : ");
+            String username = scanner.nextLine().trim();
+            System.out.print("Password : ");
+            String password = scanner.nextLine().trim();
+
+            try {
+                kasirAktif = penggunaDAO.login(username, password);
+                if (kasirAktif == null) {
+                    percobaan++;
+                    System.out.println("Login gagal! Username atau password salah. (" + percobaan + "/" + MAKS_PERCOBAAN + ")\n");
+                }
+            } catch (SQLException ex) {
+                System.err.println("Terjadi kesalahan koneksi database: " + ex.getMessage());
+                scanner.close();
+                return;
             }
         }
-        System.out.println();
-    }
 
-    static void tampilkanTabelBatch(Connection con) throws SQLException {
-        System.out.println("=============== TABEL BATCH OBAT ===============");
-        String f = "| %-10s | %-10s | %-6s | %-12s |%n";
-        System.out.printf(f, "id_batch", "id_obat", "stok", "tgl_expired");
+        if (kasirAktif == null) {
+            System.out.println("Batas percobaan login habis. Program dihentikan.");
+            scanner.close();
+            return;
+        }
 
-        try (PreparedStatement ps = con.prepareStatement("SELECT * FROM apotek.batch_obat");
-             ResultSet rs = ps.executeQuery()) {
-            while (rs.next()) {
-                System.out.printf(f,
-                        rs.getString("id_batch"),
-                        rs.getString("id_obat"),
-                        rs.getInt("stok"),
-                        rs.getString("tgl_expired"));
+        System.out.println("\nLogin berhasil! Selamat bertugas, " + kasirAktif.getUsername()
+                + " (ID: " + kasirAktif.getIdUser() + ")");
+
+        boolean berjalan = true;
+        while (berjalan) {
+            System.out.println("\n=============== MENU UTAMA ===============");
+            System.out.println("1. Lihat Daftar Obat & Stok");
+            System.out.println("2. Buat Transaksi Baru");
+            System.out.println("3. Riwayat Transaksi");
+            System.out.println("0. Logout & Keluar");
+            System.out.print("Pilih menu: ");
+            String pilihan = scanner.nextLine().trim();
+
+            switch (pilihan) {
+                case "1":
+                    System.out.println("[Info] Fitur daftar obat akan segera ditambahkan.");
+                    break;
+                case "2":
+                    System.out.println("[Info] Fitur transaksi kasir akan segera ditambahkan.");
+                    break;
+                case "3":
+                    System.out.println("[Info] Fitur riwayat transaksi akan segera ditambahkan.");
+                    break;
+                case "0":
+                    System.out.println("Logout berhasil. Sampai jumpa, " + kasirAktif.getUsername() + "!");
+                    berjalan = false;
+                    break;
+                default:
+                    System.out.println("Pilihan tidak valid, silakan coba lagi.");
             }
         }
-        System.out.println();
-    }
 
-    static void tampilkanTabelPengguna(Connection con) throws SQLException {
-        System.out.println("=============== TABEL PENGGUNA ===============");
-        String f = "| %-10s | %-12s | %-10s |%n";
-        System.out.printf(f, "id_user", "username", "password");
-
-        try (PreparedStatement ps = con.prepareStatement("SELECT * FROM apotek.pengguna");
-             ResultSet rs = ps.executeQuery()) {
-            while (rs.next()) {
-                System.out.printf(f,
-                        rs.getString("id_user"),
-                        rs.getString("username"),
-                        rs.getString("password"));
-            }
-        }
-        System.out.println();
-    }
-
-    static void tampilkanTabelTransaksi(Connection con) throws SQLException {
-        System.out.println("=============== TABEL TRANSAKSI ===============");
-        String f = "| %-14s | %-10s | %-19s | %-12s |%n";
-        System.out.printf(f, "id_transaksi", "id_user", "tgl_transaksi", "total_harga");
-
-        try (PreparedStatement ps = con.prepareStatement("SELECT * FROM apotek.transaksi");
-             ResultSet rs = ps.executeQuery()) {
-            while (rs.next()) {
-                System.out.printf(f,
-                        rs.getString("id_transaksi"),
-                        rs.getString("id_user"),
-                        rs.getString("tgl_transaksi"),
-                        rs.getDouble("total_harga"));
-            }
-        }
-        System.out.println();
-    }
-
-    static void tampilkanTabelDetail(Connection con) throws SQLException {
-        System.out.println("=============== TABEL DETAIL TRANSAKSI ===============");
-        String f = "| %-14s | %-10s | %-8s | %-10s |%n";
-        System.out.printf(f, "id_transaksi", "id_batch", "qty_beli", "sub_total");
-
-        try (PreparedStatement ps = con.prepareStatement("SELECT * FROM apotek.detail_transaksi");
-             ResultSet rs = ps.executeQuery()) {
-            while (rs.next()) {
-                System.out.printf(f,
-                        rs.getString("id_transaksi"),
-                        rs.getString("id_batch"),
-                        rs.getInt("qty_beli"),
-                        rs.getDouble("sub_total"));
-            }
-        }
-        System.out.println();
+        scanner.close();
     }
 }
