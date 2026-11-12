@@ -13,7 +13,7 @@ jobs:
           distribution: temurin
           java-version: '21'
       - name: Compile
-        run: javac -d out -cp "lib/*" src/App.java
+        run: javac -d out -cp "lib/*" src/model/*.java src/App.java
       - name: Run
         env:
           DB_URL: ${{ secrets.DB_URL }}

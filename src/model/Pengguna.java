@@ -1,3 +1,6 @@
+
+package model;
+
 public class Pengguna {
     private String idUser;
     private String username;
