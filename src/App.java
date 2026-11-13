@@ -1,12 +1,17 @@
+import dao.BatchObatDAO;
 import dao.PenggunaDAO;
 import java.sql.SQLException;
+import java.util.List;
 import java.util.Scanner;
+import model.BatchObat;
+import model.Obat;
 import model.Pengguna;
 
 public class App {
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
         PenggunaDAO penggunaDAO = new PenggunaDAO();
+        BatchObatDAO batchObatDAO = new BatchObatDAO();
         Pengguna kasirAktif = null;
 
         System.out.println("==========================================");
@@ -56,7 +61,7 @@ public class App {
 
             switch (pilihan) {
                 case "1":
-                    System.out.println("[Info] Fitur daftar obat akan segera ditambahkan.");
+                    tampilkanDaftarObat(batchObatDAO);
                     break;
                 case "2":
                     System.out.println("[Info] Fitur transaksi kasir akan segera ditambahkan.");
@@ -74,5 +79,47 @@ public class App {
         }
 
         scanner.close();
+    }
+
+    private static void tampilkanDaftarObat(BatchObatDAO batchObatDAO) {
+        System.out.println("\n======================== DAFTAR OBAT & STOK BATCH ========================");
+        try {
+            List<BatchObat> daftarBatch = batchObatDAO.getAllBatchObat();
+            if (daftarBatch.isEmpty()) {
+                System.out.println("Belum ada data stok obat di database.");
+                return;
+            }
+
+            String formatHeader = "| %-7s | %-18s | %-8s | %-5s | %-4s | %-10s | %-8s |%n";
+            System.out.printf(formatHeader, "Batch", "Nama Obat", "Harga", "Resep", "Stok", "Expired", "Status");
+            System.out.println("----------------------------------------------------------------------------------");
+
+            String formatRow = "| %-7s | %-18s | Rp%-6.0f | %-5s | %-4d | %-10s | %-8s |%n";
+            for (BatchObat batch : daftarBatch) {
+                Obat obat = batch.getObat();
+                String butuhResep = obat.isButuhResep() ? "Ya" : "Tidak";
+                String expiredStr = (batch.getTglExpired() != null) ? batch.getTglExpired().toString() : "-";
+                String status = (batch.getTglExpired() != null && batch.isExpired())
+                        ? "EXPIRED"
+                        : (batch.getStok() == 0 ? "HABIS" : "Tersedia");
+
+                String namaObat = obat.getNamaObat();
+                if (namaObat.length() > 18) {
+                    namaObat = namaObat.substring(0, 15) + "...";
+                }
+
+                System.out.printf(formatRow,
+                        batch.getIdBatch(),
+                        namaObat,
+                        obat.getHarga(),
+                        butuhResep,
+                        batch.getStok(),
+                        expiredStr,
+                        status);
+            }
+            System.out.println("==================================================================================");
+        } catch (SQLException ex) {
+            System.err.println("Gagal mengambil daftar obat: " + ex.getMessage());
+        }
     }
 }
