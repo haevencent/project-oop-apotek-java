@@ -1,17 +1,22 @@
 import dao.BatchObatDAO;
 import dao.PenggunaDAO;
+import dao.TransaksiDAO;
 import java.sql.SQLException;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Scanner;
 import model.BatchObat;
+import model.DetailTransaksi;
 import model.Obat;
 import model.Pengguna;
+import model.Transaksi;
 
 public class App {
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
         PenggunaDAO penggunaDAO = new PenggunaDAO();
         BatchObatDAO batchObatDAO = new BatchObatDAO();
+        TransaksiDAO transaksiDAO = new TransaksiDAO();
         Pengguna kasirAktif = null;
 
         System.out.println("==========================================");
@@ -64,10 +69,10 @@ public class App {
                     tampilkanDaftarObat(batchObatDAO);
                     break;
                 case "2":
-                    System.out.println("[Info] Fitur transaksi kasir akan segera ditambahkan.");
+                    buatTransaksiBaru(scanner, kasirAktif, batchObatDAO, transaksiDAO);
                     break;
                 case "3":
-                    System.out.println("[Info] Fitur riwayat transaksi akan segera ditambahkan.");
+                    tampilkanRiwayatTransaksi(transaksiDAO);
                     break;
                 case "0":
                     System.out.println("Logout berhasil. Sampai jumpa, " + kasirAktif.getUsername() + "!");
@@ -120,6 +125,209 @@ public class App {
             System.out.println("==================================================================================");
         } catch (SQLException ex) {
             System.err.println("Gagal mengambil daftar obat: " + ex.getMessage());
+        }
+    }
+
+    private static void buatTransaksiBaru(Scanner scanner, Pengguna kasirAktif,
+                                          BatchObatDAO batchObatDAO, TransaksiDAO transaksiDAO) {
+        try {
+            List<BatchObat> daftarBatch = batchObatDAO.getAllBatchObat();
+            if (daftarBatch.isEmpty()) {
+                System.out.println("Tidak ada stok obat yang tersedia untuk transaksi.");
+                return;
+            }
+
+            tampilkanDaftarObat(batchObatDAO);
+
+            String idTransaksi = transaksiDAO.generateIdTransaksi();
+            Transaksi transaksi = new Transaksi(idTransaksi, kasirAktif.getIdUser());
+
+            System.out.println("\n=== TRANSAKSI BARU (" + idTransaksi + ") ===");
+            System.out.println("Ketik ID Batch (misal: BCH-101), 'SELESAI' untuk bayar, atau 'BATAL' untuk keluar.");
+
+            while (true) {
+                System.out.print("\nMasukkan ID Batch: ");
+                String inputBatch = scanner.nextLine().trim().toUpperCase();
+
+                if (inputBatch.equals("BATAL")) {
+                    System.out.println("Transaksi dibatalkan.");
+                    return;
+                }
+                if (inputBatch.equals("SELESAI")) {
+                    if (transaksi.getDaftarDetail().isEmpty()) {
+                        System.out.println("Keranjang masih kosong! Tambahkan minimal 1 obat atau ketik 'BATAL'.");
+                        continue;
+                    }
+                    break;
+                }
+
+                BatchObat batchDipilih = null;
+                for (BatchObat b : daftarBatch) {
+                    if (b.getIdBatch().equalsIgnoreCase(inputBatch)) {
+                        batchDipilih = b;
+                        break;
+                    }
+                }
+
+                if (batchDipilih == null) {
+                    System.out.println("ID Batch '" + inputBatch + "' tidak ditemukan.");
+                    continue;
+                }
+                if (batchDipilih.getTglExpired() != null && batchDipilih.isExpired()) {
+                    System.out.println("Obat pada batch " + batchDipilih.getIdBatch() + " sudah KEDALUWARSA dan tidak boleh dijual!");
+                    continue;
+                }
+                if (batchDipilih.getStok() <= 0) {
+                    System.out.println("Stok batch " + batchDipilih.getIdBatch() + " sudah HABIS.");
+                    continue;
+                }
+
+                Obat obat = batchDipilih.getObat();
+                if (obat.isButuhResep()) {
+                    System.out.print("[PERINGATAN] " + obat.getNamaObat() + " memerlukan resep dokter. Pembeli menunjukkan resep? (y/n): ");
+                    String konfirmasiResep = scanner.nextLine().trim().toLowerCase();
+                    if (!konfirmasiResep.equals("y")) {
+                        System.out.println("Item dibatalkan karena tidak ada resep dokter.");
+                        continue;
+                    }
+                }
+
+                int sudahDiKeranjang = 0;
+                for (DetailTransaksi d : transaksi.getDaftarDetail()) {
+                    if (d.getBatch().getIdBatch().equalsIgnoreCase(batchDipilih.getIdBatch())) {
+                        sudahDiKeranjang += d.getQtyBeli();
+                    }
+                }
+                int sisaStokTersedia = batchDipilih.getStok() - sudahDiKeranjang;
+
+                if (sisaStokTersedia <= 0) {
+                    System.out.println("Seluruh stok batch ini sudah masuk ke keranjang Anda.");
+                    continue;
+                }
+
+                System.out.print("Jumlah beli (maks " + sisaStokTersedia + "): ");
+                String qtyInput = scanner.nextLine().trim();
+                int qty;
+                try {
+                    qty = Integer.parseInt(qtyInput);
+                    if (qty <= 0 || qty > sisaStokTersedia) {
+                        System.out.println("Jumlah tidak valid! Masukkan angka antara 1 sampai " + sisaStokTersedia + ".");
+                        continue;
+                    }
+                } catch (NumberFormatException ex) {
+                    System.out.println("Input harus berupa angka bulat.");
+                    continue;
+                }
+
+                DetailTransaksi detail = new DetailTransaksi(batchDipilih, qty);
+                transaksi.tambahDetail(detail);
+
+                System.out.printf("-> Ditambahkan: %s x%d = Rp%.0f | Total Sementara: Rp%.0f%n",
+                        obat.getNamaObat(), qty, detail.getSubTotal(), transaksi.getTotalHarga());
+            }
+
+            System.out.println("\n================ RINGKASAN PEMBAYARAN ================");
+            for (DetailTransaksi d : transaksi.getDaftarDetail()) {
+                System.out.printf("- %-20s (%s) x%-3d : Rp%.0f%n",
+                        d.getBatch().getObat().getNamaObat(),
+                        d.getBatch().getIdBatch(),
+                        d.getQtyBeli(),
+                        d.getSubTotal());
+            }
+            System.out.println("------------------------------------------------------");
+            System.out.printf("TOTAL TAGIHAN : Rp%.0f%n", transaksi.getTotalHarga());
+
+            double uangBayar = 0;
+            while (true) {
+                System.out.print("Uang Dibayar  : Rp");
+                String bayarInput = scanner.nextLine().trim();
+                try {
+                    uangBayar = Double.parseDouble(bayarInput);
+                    if (uangBayar < transaksi.getTotalHarga()) {
+                        System.out.printf("Uang pembayaran kurang! Minimal Rp%.0f%n", transaksi.getTotalHarga());
+                        continue;
+                    }
+                    break;
+                } catch (NumberFormatException ex) {
+                    System.out.println("Masukkan nominal angka yang valid.");
+                }
+            }
+
+            double kembalian = uangBayar - transaksi.getTotalHarga();
+            transaksiDAO.simpanTransaksi(transaksi);
+
+            DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+            System.out.println("\n=================== STRUK APOTEK ===================");
+            System.out.println("No. Transaksi : " + transaksi.getIdTransaksi());
+            System.out.println("Kasir         : " + kasirAktif.getUsername() + " (" + kasirAktif.getIdUser() + ")");
+            System.out.println("Waktu         : " + transaksi.getTglTransaksi().format(fmt));
+            System.out.println("----------------------------------------------------");
+            for (DetailTransaksi d : transaksi.getDaftarDetail()) {
+                System.out.printf("%-22s x%-3d  Rp%.0f%n",
+                        d.getBatch().getObat().getNamaObat(),
+                        d.getQtyBeli(),
+                        d.getSubTotal());
+            }
+            System.out.println("----------------------------------------------------");
+            System.out.printf("Total         : Rp%.0f%n", transaksi.getTotalHarga());
+            System.out.printf("Tunai         : Rp%.0f%n", uangBayar);
+            System.out.printf("Kembalian     : Rp%.0f%n", kembalian);
+            System.out.println("====================================================");
+            System.out.println("Transaksi berhasil disimpan & stok diperbarui!");
+
+        } catch (SQLException ex) {
+            System.err.println("Gagal memproses transaksi: " + ex.getMessage());
+        }
+    }
+
+    private static void tampilkanRiwayatTransaksi(TransaksiDAO transaksiDAO) {
+        System.out.println("\n======================== RIWAYAT TRANSAKSI ========================");
+        try {
+            List<Transaksi> daftarTransaksi = transaksiDAO.getRiwayatTransaksi();
+            if (daftarTransaksi.isEmpty()) {
+                System.out.println("Belum ada data transaksi di database.");
+                return;
+            }
+
+            DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+            String formatHeader = "| %-8s | %-7s | %-16s | %-10s | %-23s |%n";
+            System.out.printf(formatHeader, "ID Trx", "Kasir", "Waktu", "Total", "Rincian Obat");
+            System.out.println("--------------------------------------------------------------------------------");
+
+            String formatRow = "| %-8s | %-7s | %-16s | Rp%-8.0f | %-23s |%n";
+            for (Transaksi trx : daftarTransaksi) {
+                String waktuStr = (trx.getTglTransaksi() != null) ? trx.getTglTransaksi().format(fmt) : "-";
+
+                StringBuilder rincianBuilder = new StringBuilder();
+                List<DetailTransaksi> details = trx.getDaftarDetail();
+                for (int i = 0; i < details.size(); i++) {
+                    DetailTransaksi d = details.get(i);
+                    rincianBuilder.append(d.getBatch().getObat().getNamaObat())
+                                  .append(" (x")
+                                  .append(d.getQtyBeli())
+                                  .append(")");
+                    if (i < details.size() - 1) {
+                        rincianBuilder.append(", ");
+                    }
+                }
+
+                String rincian = rincianBuilder.toString();
+                if (rincian.isEmpty()) {
+                    rincian = "-";
+                } else if (rincian.length() > 23) {
+                    rincian = rincian.substring(0, 20) + "...";
+                }
+
+                System.out.printf(formatRow,
+                        trx.getIdTransaksi(),
+                        trx.getIdUser(),
+                        waktuStr,
+                        trx.getTotalHarga(),
+                        rincian);
+            }
+            System.out.println("================================================================================");
+        } catch (SQLException ex) {
+            System.err.println("Gagal mengambil riwayat transaksi: " + ex.getMessage());
         }
     }
 }
