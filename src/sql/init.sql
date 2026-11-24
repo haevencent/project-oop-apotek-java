@@ -19,7 +19,7 @@ INSERT INTO apotek.pengguna(id_user, username, password)
         ('USR-012', 'kevin', 'pass909'),
         ('USR-013', 'lina', 'pass112'),
         ('USR-014', 'mario', 'pass213'),
-        ('USR-015', 'nina', 'pass314')
+        ('USR-015', 'nina', 'pass314');
 
 INSERT INTO apotek.obat(id_obat, nama_obat, harga, butuh_resep) 
     VALUES('OBT-001', 'Paracetamol 500mg', 5000.00, false),
@@ -70,7 +70,7 @@ INSERT INTO apotek.transaksi (id_transaksi, id_user, tgl_transaksi, total_harga)
         ('TRX-012', 'USR-001', '2026-11-10 09:00:00', 30000.00),
         ('TRX-013', 'USR-008', '2026-11-11 12:35:00', 18000.00),
         ('TRX-014', 'USR-003', '2026-11-12 16:15:00', 44000.00),
-        ('TRX-015', 'USR-007', '2026-11-13 14:50:00', 45000.00)
+        ('TRX-015', 'USR-007', '2026-11-13 14:50:00', 45000.00);
 
 INSERT INTO apotek.detail_transaksi (id_transaksi, id_batch, qty_beli, sub_total)
         VALUES('TRX-001', 'BCH-101', 2, 10000.00),
@@ -87,7 +87,7 @@ INSERT INTO apotek.detail_transaksi (id_transaksi, id_batch, qty_beli, sub_total
         ('TRX-012', 'BCH-112', 3, 30000.00),
         ('TRX-013', 'BCH-113', 6, 18000.00),
         ('TRX-014', 'BCH-114', 2, 44000.00),
-        ('TRX-015', 'BCH-115', 5, 45000.00)
+        ('TRX-015', 'BCH-115', 5, 45000.00);
 
 
 
