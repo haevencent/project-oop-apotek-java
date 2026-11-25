@@ -60,6 +60,7 @@ public class App {
             System.out.println("1. Lihat Daftar Obat & Stok");
             System.out.println("2. Buat Transaksi Baru");
             System.out.println("3. Riwayat Transaksi");
+            System.out.println("4. Tambah Stok Obat");
             System.out.println("0. Logout & Keluar");
             System.out.print("Pilih menu: ");
             String pilihan = scanner.nextLine().trim();
@@ -74,6 +75,9 @@ public class App {
                 case "3":
                     tampilkanRiwayatTransaksi(transaksiDAO);
                     break;
+                case "4":
+                    tambahStok(scanner, batchObatDAO);
+                    break;
                 case "0":
                     System.out.println("Logout berhasil. Sampai jumpa, " + kasirAktif.getUsername() + "!");
                     berjalan = false;
@@ -84,6 +88,101 @@ public class App {
         }
 
         scanner.close();
+    }
+
+    private static void tambahStok(Scanner scanner, BatchObatDAO batchObatDAO) {
+        try {
+            List<BatchObat> daftarBatch = batchObatDAO.getAllBatchObat();
+            if (daftarBatch.isEmpty()) {
+                System.out.println("Belum ada batch obat di database. Tambahkan data batch terlebih dahulu.");
+                return;
+            }
+
+            tampilkanDaftarObat(batchObatDAO);
+
+            System.out.println("\n=== TAMBAH STOK OBAT ===");
+            System.out.println("Ketik ID Batch (misal: BCH-101), atau 'BATAL' untuk kembali ke menu.");
+
+            // 1. Pilih batch
+            BatchObat batchDipilih = null;
+            while (batchDipilih == null) {
+                System.out.print("\nMasukkan ID Batch: ");
+                String inputBatch = scanner.nextLine().trim().toUpperCase();
+
+                if (inputBatch.equals("BATAL")) {
+                    System.out.println("Penambahan stok dibatalkan.");
+                    return;
+                }
+
+                BatchObat ditemukan = null;
+                for (BatchObat b : daftarBatch) {
+                    if (b.getIdBatch().equalsIgnoreCase(inputBatch)) {
+                        ditemukan = b;
+                        break;
+                    }
+                }
+
+                if (ditemukan == null) {
+                    System.out.println("ID Batch '" + inputBatch + "' tidak ditemukan.");
+                    continue;
+                }
+                if (ditemukan.getTglExpired() != null && ditemukan.isExpired()) {
+                    System.out.println("Batch " + ditemukan.getIdBatch()
+                            + " sudah KEDALUWARSA. Stok tidak boleh ditambahkan ke batch ini.");
+                    continue;
+                }
+                batchDipilih = ditemukan;
+            }
+
+            // 2. Masukkan jumlah
+            int stokLama = batchDipilih.getStok();
+            int batasMaks = Integer.MAX_VALUE - stokLama; // cegah overflow
+            int jumlah;
+            while (true) {
+                System.out.print("Jumlah stok yang ditambahkan: ");
+                String qtyInput = scanner.nextLine().trim();
+                if (qtyInput.equalsIgnoreCase("BATAL")) {
+                    System.out.println("Penambahan stok dibatalkan.");
+                    return;
+                }
+                try {
+                    jumlah = Integer.parseInt(qtyInput);
+                    if (jumlah <= 0) {
+                        System.out.println("Jumlah harus lebih dari 0.");
+                        continue;
+                    }
+                    if (jumlah > batasMaks) {
+                        System.out.println("Jumlah terlalu besar.");
+                        continue;
+                    }
+                    break;
+                } catch (NumberFormatException ex) {
+                    System.out.println("Input harus berupa angka bulat.");
+                }
+            }
+
+            // 3. Konfirmasi
+            String namaObat = batchDipilih.getObat().getNamaObat();
+            System.out.printf("Tambah %d unit ke %s (%s)? Stok: %d -> %d (y/n): ",
+                    jumlah, namaObat, batchDipilih.getIdBatch(), stokLama, stokLama + jumlah);
+            String konfirmasi = scanner.nextLine().trim().toLowerCase();
+            if (!konfirmasi.equals("y")) {
+                System.out.println("Penambahan stok dibatalkan.");
+                return;
+            }
+
+            // 4. Simpan ke database
+            boolean berhasil = batchObatDAO.tambahStok(batchDipilih.getIdBatch(), jumlah);
+            if (berhasil) {
+                System.out.println("Stok berhasil ditambahkan! " + namaObat + " (" + batchDipilih.getIdBatch()
+                        + ") sekarang: " + (stokLama + jumlah) + " unit.");
+            } else {
+                System.out.println("Gagal menambah stok: batch tidak ditemukan di database.");
+            }
+
+        } catch (SQLException ex) {
+            System.err.println("Gagal menambah stok: " + ex.getMessage());
+        }
     }
 
     private static void tampilkanDaftarObat(BatchObatDAO batchObatDAO) {

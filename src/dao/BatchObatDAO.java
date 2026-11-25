@@ -47,4 +47,19 @@ public class BatchObatDAO {
         }
         return daftarBatch;
     }
+
+    public boolean tambahStok(String idBatch, int jumlah) throws SQLException {
+        if (jumlah <= 0) {
+            throw new IllegalArgumentException("Jumlah tambah stok harus lebih dari 0");
+        }
+
+        String sql = "UPDATE apotek.batch_obat SET stok = stok + ? WHERE id_batch = ?";
+
+        try (Connection con = DatabaseConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setInt(1, jumlah);
+            ps.setString(2, idBatch);
+            return ps.executeUpdate() > 0;
+        }
+    }
 }
