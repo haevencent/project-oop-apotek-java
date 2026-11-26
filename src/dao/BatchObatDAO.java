@@ -48,6 +48,59 @@ public class BatchObatDAO {
         return daftarBatch;
     }
 
+    public List<Obat> getAllObat() throws SQLException {
+        List<Obat> daftarObat = new ArrayList<>();
+        String sql = "SELECT id_obat, nama_obat, harga, butuh_resep "
+                   + "FROM apotek.obat ORDER BY id_obat ASC";
+
+        try (Connection con = DatabaseConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+
+            while (rs.next()) {
+                daftarObat.add(new Obat(
+                    rs.getString("id_obat"),
+                    rs.getString("nama_obat"),
+                    rs.getDouble("harga"),
+                    rs.getBoolean("butuh_resep")
+                ));
+            }
+        }
+        return daftarObat;
+    }
+
+    public String generateIdBatch() throws SQLException {
+        String sql = "SELECT id_batch FROM apotek.batch_obat "
+                   + "WHERE id_batch LIKE 'BCH-%' "
+                   + "ORDER BY LENGTH(id_batch) DESC, id_batch DESC LIMIT 1";
+
+        try (Connection con = DatabaseConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+
+            if (rs.next()) {
+                String lastId = rs.getString("id_batch"); // contoh: BCH-115
+                int nomor = Integer.parseInt(lastId.substring(4)) + 1;
+                return String.format("BCH-%03d", nomor);
+            }
+        }
+        return "BCH-101";
+    }
+
+    public void tambahBatch(BatchObat batch) throws SQLException {
+        String sql = "INSERT INTO apotek.batch_obat (id_batch, id_obat, stok, tgl_expired) "
+                   + "VALUES (?, ?, ?, ?)";
+
+        try (Connection con = DatabaseConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, batch.getIdBatch());
+            ps.setString(2, batch.getObat().getIdObat());
+            ps.setInt(3, batch.getStok());
+            ps.setDate(4, Date.valueOf(batch.getTglExpired()));
+            ps.executeUpdate();
+        }
+    }
+
     public boolean tambahStok(String idBatch, int jumlah) throws SQLException {
         if (jumlah <= 0) {
             throw new IllegalArgumentException("Jumlah tambah stok harus lebih dari 0");

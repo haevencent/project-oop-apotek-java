@@ -2,7 +2,9 @@ import dao.BatchObatDAO;
 import dao.PenggunaDAO;
 import dao.TransaksiDAO;
 import java.sql.SQLException;
+import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Scanner;
 import model.BatchObat;
@@ -60,7 +62,8 @@ public class App {
             System.out.println("1. Lihat Daftar Obat & Stok");
             System.out.println("2. Buat Transaksi Baru");
             System.out.println("3. Riwayat Transaksi");
-            System.out.println("4. Tambah Stok Obat");
+            System.out.println("4. Tambah Stok Obat (Batch Lama)");
+            System.out.println("5. Tambah Batch Obat Baru");
             System.out.println("0. Logout & Keluar");
             System.out.print("Pilih menu: ");
             String pilihan = scanner.nextLine().trim();
@@ -78,6 +81,9 @@ public class App {
                 case "4":
                     tambahStok(scanner, batchObatDAO);
                     break;
+                case "5":
+                    tambahBatchBaru(scanner, batchObatDAO);
+                    break;
                 case "0":
                     System.out.println("Logout berhasil. Sampai jumpa, " + kasirAktif.getUsername() + "!");
                     berjalan = false;
@@ -88,6 +94,114 @@ public class App {
         }
 
         scanner.close();
+    }
+
+    private static void tambahBatchBaru(Scanner scanner, BatchObatDAO batchObatDAO) {
+        try {
+            List<Obat> daftarObat = batchObatDAO.getAllObat();
+            if (daftarObat.isEmpty()) {
+                System.out.println("Belum ada data master obat di database.");
+                return;
+            }
+
+            System.out.println("\n==================== DAFTAR MASTER OBAT ====================");
+            System.out.printf("| %-8s | %-22s | %-9s | %-5s |%n", "ID Obat", "Nama Obat", "Harga", "Resep");
+            System.out.println("------------------------------------------------------------");
+            for (Obat o : daftarObat) {
+                String nama = o.getNamaObat().length() > 22
+                        ? o.getNamaObat().substring(0, 19) + "..."
+                        : o.getNamaObat();
+                System.out.printf("| %-8s | %-22s | Rp%-7.0f | %-5s |%n",
+                        o.getIdObat(),
+                        nama,
+                        o.getHarga(),
+                        o.isButuhResep() ? "Ya" : "Tidak");
+            }
+            System.out.println("============================================================");
+
+            String idBatchBaru = batchObatDAO.generateIdBatch();
+            System.out.println("\n=== TAMBAH BATCH BARU (" + idBatchBaru + ") ===");
+            System.out.println("Ketik 'BATAL' kapan saja untuk kembali ke menu utama.");
+
+            // 1. Pilih ID Obat
+            Obat obatDipilih = null;
+            while (obatDipilih == null) {
+                System.out.print("Masukkan ID Obat (misal: OBT-001): ");
+                String inputObat = scanner.nextLine().trim().toUpperCase();
+                if (inputObat.equals("BATAL")) {
+                    System.out.println("Penambahan batch dibatalkan.");
+                    return;
+                }
+                for (Obat o : daftarObat) {
+                    if (o.getIdObat().equalsIgnoreCase(inputObat)) {
+                        obatDipilih = o;
+                        break;
+                    }
+                }
+                if (obatDipilih == null) {
+                    System.out.println("ID Obat '" + inputObat + "' tidak ditemukan.");
+                }
+            }
+
+            // 2. Input stok awal
+            int stokAwal;
+            while (true) {
+                System.out.print("Jumlah stok awal batch: ");
+                String stokInput = scanner.nextLine().trim();
+                if (stokInput.equalsIgnoreCase("BATAL")) {
+                    System.out.println("Penambahan batch dibatalkan.");
+                    return;
+                }
+                try {
+                    stokAwal = Integer.parseInt(stokInput);
+                    if (stokAwal <= 0) {
+                        System.out.println("Stok awal harus lebih dari 0.");
+                        continue;
+                    }
+                    break;
+                } catch (NumberFormatException ex) {
+                    System.out.println("Input harus berupa angka bulat.");
+                }
+            }
+
+            // 3. Input tanggal expired
+            LocalDate tglExpired;
+            while (true) {
+                System.out.print("Tanggal Expired (YYYY-MM-DD, misal 2028-06-30): ");
+                String tglInput = scanner.nextLine().trim();
+                if (tglInput.equalsIgnoreCase("BATAL")) {
+                    System.out.println("Penambahan batch dibatalkan.");
+                    return;
+                }
+                try {
+                    tglExpired = LocalDate.parse(tglInput);
+                    if (!tglExpired.isAfter(LocalDate.now())) {
+                        System.out.println("Tanggal expired harus lebih dari hari ini (" + LocalDate.now() + ").");
+                        continue;
+                    }
+                    break;
+                } catch (DateTimeParseException ex) {
+                    System.out.println("Format tanggal salah! Gunakan format YYYY-MM-DD.");
+                }
+            }
+
+            // 4. Konfirmasi & simpan
+            System.out.printf("Simpan batch %s untuk %s (%s), stok %d, expired %s? (y/n): ",
+                    idBatchBaru, obatDipilih.getNamaObat(), obatDipilih.getIdObat(), stokAwal, tglExpired);
+            String konfirmasi = scanner.nextLine().trim().toLowerCase();
+            if (!konfirmasi.equals("y")) {
+                System.out.println("Penambahan batch dibatalkan.");
+                return;
+            }
+
+            BatchObat batchBaru = new BatchObat(idBatchBaru, obatDipilih, stokAwal, tglExpired);
+            batchObatDAO.tambahBatch(batchBaru);
+            System.out.println("Batch baru " + idBatchBaru + " (" + obatDipilih.getNamaObat()
+                    + ") berhasil ditambahkan dengan stok " + stokAwal + " unit!");
+
+        } catch (SQLException ex) {
+            System.err.println("Gagal menambahkan batch baru: " + ex.getMessage());
+        }
     }
 
     private static void tambahStok(Scanner scanner, BatchObatDAO batchObatDAO) {
@@ -136,7 +250,7 @@ public class App {
 
             // 2. Masukkan jumlah
             int stokLama = batchDipilih.getStok();
-            int batasMaks = Integer.MAX_VALUE - stokLama; // cegah overflow
+            int batasMaks = Integer.MAX_VALUE - stokLama;
             int jumlah;
             while (true) {
                 System.out.print("Jumlah stok yang ditambahkan: ");
