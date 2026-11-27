@@ -64,6 +64,7 @@ public class App {
             System.out.println("3. Riwayat Transaksi");
             System.out.println("4. Tambah Stok Obat (Batch Lama)");
             System.out.println("5. Tambah Batch Obat Baru");
+            System.out.println("6. Update Data Batch Obat");
             System.out.println("0. Logout & Keluar");
             System.out.print("Pilih menu: ");
             String pilihan = scanner.nextLine().trim();
@@ -83,6 +84,9 @@ public class App {
                     break;
                 case "5":
                     tambahBatchBaru(scanner, batchObatDAO);
+                    break;
+                case "6":
+                    updateBatch(scanner, batchObatDAO);
                     break;
                 case "0":
                     System.out.println("Logout berhasil. Sampai jumpa, " + kasirAktif.getUsername() + "!");
@@ -201,6 +205,157 @@ public class App {
 
         } catch (SQLException ex) {
             System.err.println("Gagal menambahkan batch baru: " + ex.getMessage());
+        }
+    }
+
+    private static void updateBatch(Scanner scanner, BatchObatDAO batchObatDAO) {
+        try {
+            List<BatchObat> daftarBatch = batchObatDAO.getAllBatchObat();
+            if (daftarBatch.isEmpty()) {
+                System.out.println("Belum ada batch obat di database.");
+                return;
+            }
+            List<Obat> daftarObat = batchObatDAO.getAllObat();
+
+            tampilkanDaftarObat(batchObatDAO);
+
+            System.out.println("\n=== UPDATE DATA BATCH OBAT ===");
+            System.out.println("Ketik 'BATAL' kapan saja untuk kembali ke menu utama.");
+            System.out.println("Tekan ENTER (kosongkan) untuk mempertahankan nilai lama.");
+
+            // 1. Pilih batch yang akan diupdate
+            BatchObat batchLama = null;
+            while (batchLama == null) {
+                System.out.print("\nMasukkan ID Batch yang akan diupdate: ");
+                String inputBatch = scanner.nextLine().trim().toUpperCase();
+                if (inputBatch.equals("BATAL")) {
+                    System.out.println("Update batch dibatalkan.");
+                    return;
+                }
+                for (BatchObat b : daftarBatch) {
+                    if (b.getIdBatch().equalsIgnoreCase(inputBatch)) {
+                        batchLama = b;
+                        break;
+                    }
+                }
+                if (batchLama == null) {
+                    System.out.println("ID Batch '" + inputBatch + "' tidak ditemukan.");
+                }
+            }
+
+            String expiredLamaStr = batchLama.getTglExpired() != null ? batchLama.getTglExpired().toString() : "-";
+            System.out.println("\nData saat ini:");
+            System.out.println("  Obat    : " + batchLama.getObat().getNamaObat() + " (" + batchLama.getObat().getIdObat() + ")");
+            System.out.println("  Stok    : " + batchLama.getStok());
+            System.out.println("  Expired : " + expiredLamaStr);
+
+            // 2. ID Obat baru (opsional)
+            Obat obatBaru = null;
+            while (obatBaru == null) {
+                System.out.print("ID Obat baru [" + batchLama.getObat().getIdObat() + "]: ");
+                String inputObat = scanner.nextLine().trim().toUpperCase();
+                if (inputObat.equals("BATAL")) {
+                    System.out.println("Update batch dibatalkan.");
+                    return;
+                }
+                if (inputObat.isEmpty()) {
+                    obatBaru = batchLama.getObat();
+                    break;
+                }
+                for (Obat o : daftarObat) {
+                    if (o.getIdObat().equalsIgnoreCase(inputObat)) {
+                        obatBaru = o;
+                        break;
+                    }
+                }
+                if (obatBaru == null) {
+                    System.out.println("ID Obat '" + inputObat + "' tidak ditemukan.");
+                }
+            }
+
+            // 3. Stok baru (opsional)
+            int stokBaru;
+            while (true) {
+                System.out.print("Stok baru [" + batchLama.getStok() + "]: ");
+                String stokInput = scanner.nextLine().trim();
+                if (stokInput.equalsIgnoreCase("BATAL")) {
+                    System.out.println("Update batch dibatalkan.");
+                    return;
+                }
+                if (stokInput.isEmpty()) {
+                    stokBaru = batchLama.getStok();
+                    break;
+                }
+                try {
+                    stokBaru = Integer.parseInt(stokInput);
+                    if (stokBaru < 0) {
+                        System.out.println("Stok tidak boleh negatif.");
+                        continue;
+                    }
+                    break;
+                } catch (NumberFormatException ex) {
+                    System.out.println("Input harus berupa angka bulat.");
+                }
+            }
+
+            // 4. Tanggal expired baru (opsional)
+            LocalDate tglBaru;
+            while (true) {
+                System.out.print("Tanggal Expired baru (YYYY-MM-DD) [" + expiredLamaStr + "]: ");
+                String tglInput = scanner.nextLine().trim();
+                if (tglInput.equalsIgnoreCase("BATAL")) {
+                    System.out.println("Update batch dibatalkan.");
+                    return;
+                }
+                if (tglInput.isEmpty()) {
+                    tglBaru = batchLama.getTglExpired();
+                    break;
+                }
+                try {
+                    tglBaru = LocalDate.parse(tglInput);
+                    if (!tglBaru.isAfter(LocalDate.now())) {
+                        System.out.println("Tanggal expired harus lebih dari hari ini (" + LocalDate.now() + ").");
+                        continue;
+                    }
+                    break;
+                } catch (DateTimeParseException ex) {
+                    System.out.println("Format tanggal salah! Gunakan format YYYY-MM-DD.");
+                }
+            }
+
+            // 5. Cek apakah ada perubahan
+            boolean samaObat = obatBaru.getIdObat().equalsIgnoreCase(batchLama.getObat().getIdObat());
+            boolean samaStok = stokBaru == batchLama.getStok();
+            boolean samaTgl = (tglBaru == null) ? batchLama.getTglExpired() == null : tglBaru.equals(batchLama.getTglExpired());
+            if (samaObat && samaStok && samaTgl) {
+                System.out.println("Tidak ada perubahan data. Update dibatalkan.");
+                return;
+            }
+
+            // 6. Konfirmasi
+            String tglBaruStr = tglBaru != null ? tglBaru.toString() : "-";
+            System.out.println("\nRingkasan perubahan batch " + batchLama.getIdBatch() + ":");
+            System.out.println("  Obat    : " + batchLama.getObat().getNamaObat() + " -> " + obatBaru.getNamaObat());
+            System.out.println("  Stok    : " + batchLama.getStok() + " -> " + stokBaru);
+            System.out.println("  Expired : " + expiredLamaStr + " -> " + tglBaruStr);
+            System.out.print("Simpan perubahan? (y/n): ");
+            String konfirmasi = scanner.nextLine().trim().toLowerCase();
+            if (!konfirmasi.equals("y")) {
+                System.out.println("Update batch dibatalkan.");
+                return;
+            }
+
+            // 7. Simpan ke database
+            BatchObat batchBaru = new BatchObat(batchLama.getIdBatch(), obatBaru, stokBaru, tglBaru);
+            boolean berhasil = batchObatDAO.updateBatch(batchBaru);
+            if (berhasil) {
+                System.out.println("Batch " + batchLama.getIdBatch() + " berhasil diupdate!");
+            } else {
+                System.out.println("Gagal update: batch tidak ditemukan di database.");
+            }
+
+        } catch (SQLException ex) {
+            System.err.println("Gagal mengupdate batch: " + ex.getMessage());
         }
     }
 

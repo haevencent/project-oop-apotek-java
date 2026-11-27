@@ -101,6 +101,22 @@ public class BatchObatDAO {
         }
     }
 
+    public boolean updateBatch(BatchObat batch) throws SQLException {
+    String sql = "UPDATE apotek.batch_obat SET id_obat = ?, stok = ?, tgl_expired = ? WHERE id_batch = ?";
+    try (Connection conn = DatabaseConnection.getConnection();
+         PreparedStatement ps = conn.prepareStatement(sql)) {
+        ps.setString(1, batch.getObat().getIdObat());
+        ps.setInt(2, batch.getStok());
+        if (batch.getTglExpired() != null) {
+            ps.setDate(3, java.sql.Date.valueOf(batch.getTglExpired()));
+        } else {
+            ps.setNull(3, java.sql.Types.DATE);
+        }
+        ps.setString(4, batch.getIdBatch());
+        return ps.executeUpdate() > 0;
+    }
+}
+
     public boolean tambahStok(String idBatch, int jumlah) throws SQLException {
         if (jumlah <= 0) {
             throw new IllegalArgumentException("Jumlah tambah stok harus lebih dari 0");
