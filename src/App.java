@@ -65,6 +65,7 @@ public class App {
             System.out.println("4. Tambah Stok Obat (Batch Lama)");
             System.out.println("5. Tambah Batch Obat Baru");
             System.out.println("6. Update Data Batch Obat");
+            System.out.println("7. Hapus Batch Obat");
             System.out.println("0. Logout & Keluar");
             System.out.print("Pilih menu: ");
             String pilihan = scanner.nextLine().trim();
@@ -87,6 +88,9 @@ public class App {
                     break;
                 case "6":
                     updateBatch(scanner, batchObatDAO);
+                    break;
+                case "7":
+                    hapusBatch(scanner, batchObatDAO);
                     break;
                 case "0":
                     System.out.println("Logout berhasil. Sampai jumpa, " + kasirAktif.getUsername() + "!");
@@ -356,6 +360,78 @@ public class App {
 
         } catch (SQLException ex) {
             System.err.println("Gagal mengupdate batch: " + ex.getMessage());
+        }
+    }
+
+    private static void hapusBatch(Scanner scanner, BatchObatDAO batchObatDAO) {
+        try {
+            List<BatchObat> daftarBatch = batchObatDAO.getAllBatchObat();
+            if (daftarBatch.isEmpty()) {
+                System.out.println("Belum ada batch obat di database.");
+                return;
+            }
+
+            tampilkanDaftarObat(batchObatDAO);
+
+            System.out.println("\n=== HAPUS BATCH OBAT ===");
+            System.out.println("Ketik ID Batch (misal: BCH-101), atau 'BATAL' untuk kembali ke menu.");
+
+            // 1. Pilih batch
+            BatchObat batchDipilih = null;
+            while (batchDipilih == null) {
+                System.out.print("\nMasukkan ID Batch yang akan dihapus: ");
+                String inputBatch = scanner.nextLine().trim().toUpperCase();
+                if (inputBatch.equals("BATAL")) {
+                    System.out.println("Penghapusan batch dibatalkan.");
+                    return;
+                }
+                for (BatchObat b : daftarBatch) {
+                    if (b.getIdBatch().equalsIgnoreCase(inputBatch)) {
+                        batchDipilih = b;
+                        break;
+                    }
+                }
+                if (batchDipilih == null) {
+                    System.out.println("ID Batch '" + inputBatch + "' tidak ditemukan.");
+                }
+            }
+
+            // 2. Tampilkan detail & peringatan
+            String expiredStr = batchDipilih.getTglExpired() != null ? batchDipilih.getTglExpired().toString() : "-";
+            System.out.println("\nData batch yang akan dihapus:");
+            System.out.println("  ID Batch : " + batchDipilih.getIdBatch());
+            System.out.println("  Obat     : " + batchDipilih.getObat().getNamaObat() + " (" + batchDipilih.getObat().getIdObat() + ")");
+            System.out.println("  Stok     : " + batchDipilih.getStok());
+            System.out.println("  Expired  : " + expiredStr);
+
+            boolean expired = batchDipilih.getTglExpired() != null && batchDipilih.isExpired();
+            if (batchDipilih.getStok() > 0 && !expired) {
+                System.out.println("[PERINGATAN] Batch ini masih punya " + batchDipilih.getStok()
+                        + " unit stok yang belum kedaluwarsa!");
+            }
+
+            // 3. Konfirmasi
+            System.out.print("Yakin hapus batch " + batchDipilih.getIdBatch() + "? Tindakan ini tidak bisa dibatalkan. (y/n): ");
+            String konfirmasi = scanner.nextLine().trim().toLowerCase();
+            if (!konfirmasi.equals("y")) {
+                System.out.println("Penghapusan batch dibatalkan.");
+                return;
+            }
+
+            // 4. Hapus dari database
+            boolean berhasil = batchObatDAO.hapusBatch(batchDipilih.getIdBatch());
+            if (berhasil) {
+                System.out.println("Batch " + batchDipilih.getIdBatch() + " berhasil dihapus.");
+            } else {
+                System.out.println("Gagal menghapus: batch tidak ditemukan di database.");
+            }
+
+        } catch (SQLException ex) {
+            if (ex.getSQLState() != null && ex.getSQLState().startsWith("23")) {
+                System.out.println("Batch tidak bisa dihapus karena sudah tercatat di riwayat transaksi.");
+            } else {
+                System.err.println("Gagal menghapus batch: " + ex.getMessage());
+            }
         }
     }
 
