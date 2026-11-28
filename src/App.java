@@ -1110,7 +1110,7 @@ public class App {
     }
     private static void tambahUserBaru(Scanner scanner, PenggunaDAO penggunaDAO) {
         System.out.println("\n=== TAMBAH USER BARU ===");
-        System.out.print("ID User (misal: USR-13): ");
+        System.out.print("ID User (misal: USR-013): ");
         String idUser = scanner.nextLine().trim().toUpperCase();
         System.out.print("Username: ");
         String username = scanner.nextLine().trim();
