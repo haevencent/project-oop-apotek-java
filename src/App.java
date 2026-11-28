@@ -857,7 +857,7 @@ public class App {
     }
 
     private static void tampilkanDaftarObat(BatchObatDAO batchObatDAO) {
-        System.out.println("\n======================== DAFTAR OBAT & STOK BATCH ========================");
+        System.out.println("\n======================== DAFTAR OBAT & STOK BATCH ================================");
         try {
             List<BatchObat> daftarBatch = batchObatDAO.getAllBatchObat();
             if (daftarBatch.isEmpty()) {
