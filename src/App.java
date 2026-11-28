@@ -71,6 +71,8 @@ public class App {
             System.out.println("8. Tambah Master Data Obat Baru");
             System.out.println("9. Update Master Data Obat");
             System.out.println("10. Hapus Master Data Obat");
+            System.out.println("11. Tambah User Baru");
+            System.out.println("12. Hapus User");
             System.out.println("0. Logout & Keluar");
             System.out.print("Pilih menu: ");
             String pilihan = scanner.nextLine().trim();
@@ -105,6 +107,12 @@ public class App {
                     break;
                 case "10":
                     hapusObat(scanner, obatDAO);
+                    break;
+                case "11":
+                    tambahUserBaru(scanner, penggunaDAO);
+                    break;
+                case "12":
+                    hapusUser(scanner, penggunaDAO, kasirAktif);
                     break;
                 case "0":
                     System.out.println("Logout berhasil. Sampai jumpa, " + kasirAktif.getUsername() + "!");
@@ -1098,6 +1106,58 @@ public class App {
             System.out.println("================================================================================");
         } catch (SQLException ex) {
             System.err.println("Gagal mengambil riwayat transaksi: " + ex.getMessage());
+        }
+    }
+    private static void tambahUserBaru(Scanner scanner, PenggunaDAO penggunaDAO) {
+        System.out.println("\n=== TAMBAH USER BARU ===");
+        System.out.print("ID User (misal: USR-13): ");
+        String idUser = scanner.nextLine().trim().toUpperCase();
+        System.out.print("Username: ");
+        String username = scanner.nextLine().trim();
+        System.out.print("Password: ");
+        String password = scanner.nextLine().trim();
+
+        if (idUser.isEmpty() || username.isEmpty() || password.isEmpty()) {
+            System.out.println("ID User, username, dan password tidak boleh kosong.");
+            return;
+        }
+
+        try {
+            penggunaDAO.tambahPengguna(new Pengguna(idUser, username, password));
+            System.out.println("User " + idUser + " (" + username + ") berhasil ditambahkan!");
+        } catch (SQLException ex) {
+            System.err.println("Gagal menambah user: " + ex.getMessage());
+        }
+    }
+
+    private static void hapusUser(Scanner scanner, PenggunaDAO penggunaDAO, Pengguna kasirAktif) {
+        try {
+            List<Pengguna> daftarUser = penggunaDAO.getAllPengguna();
+            System.out.println("\n=== DAFTAR USER ===");
+            for (Pengguna u : daftarUser) {
+                System.out.println("- " + u.getIdUser() + " | " + u.getUsername());
+            }
+
+            System.out.print("\nMasukkan ID User yang akan dihapus (atau BATAL): ");
+            String idHapus = scanner.nextLine().trim().toUpperCase();
+            if (idHapus.equals("BATAL")) return;
+
+            if (idHapus.equalsIgnoreCase(kasirAktif.getIdUser())) {
+                System.out.println("Tidak dapat menghapus akun yang sedang login!");
+                return;
+            }
+
+            if (penggunaDAO.hapusPengguna(idHapus)) {
+                System.out.println("User " + idHapus + " berhasil dihapus.");
+            } else {
+                System.out.println("ID User '" + idHapus + "' tidak ditemukan.");
+            }
+        } catch (SQLException ex) {
+            if (ex.getSQLState() != null && ex.getSQLState().startsWith("23")) {
+                System.out.println("User tidak bisa dihapus karena sudah tercatat di riwayat transaksi.");
+            } else {
+                System.err.println("Gagal menghapus user: " + ex.getMessage());
+            }
         }
     }
 }
