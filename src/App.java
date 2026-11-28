@@ -1,4 +1,5 @@
 import dao.BatchObatDAO;
+import dao.ObatDAO;
 import dao.PenggunaDAO;
 import dao.TransaksiDAO;
 import java.sql.SQLException;
@@ -19,6 +20,7 @@ public class App {
         PenggunaDAO penggunaDAO = new PenggunaDAO();
         BatchObatDAO batchObatDAO = new BatchObatDAO();
         TransaksiDAO transaksiDAO = new TransaksiDAO();
+        ObatDAO obatDAO = new ObatDAO();
         Pengguna kasirAktif = null;
 
         System.out.println("==========================================");
@@ -66,6 +68,9 @@ public class App {
             System.out.println("5. Tambah Batch Obat Baru");
             System.out.println("6. Update Data Batch Obat");
             System.out.println("7. Hapus Batch Obat");
+            System.out.println("8. Tambah Master Data Obat Baru");
+            System.out.println("9. Update Master Data Obat");
+            System.out.println("10. Hapus Master Data Obat");
             System.out.println("0. Logout & Keluar");
             System.out.print("Pilih menu: ");
             String pilihan = scanner.nextLine().trim();
@@ -92,6 +97,15 @@ public class App {
                 case "7":
                     hapusBatch(scanner, batchObatDAO);
                     break;
+                case "8":
+                    tambahObatBaru(scanner, obatDAO);
+                    break;
+                case "9":
+                    updateObat(scanner, obatDAO);
+                    break;
+                case "10":
+                    hapusObat(scanner, obatDAO);
+                    break;
                 case "0":
                     System.out.println("Logout berhasil. Sampai jumpa, " + kasirAktif.getUsername() + "!");
                     berjalan = false;
@@ -102,6 +116,318 @@ public class App {
         }
 
         scanner.close();
+    }
+
+    private static void tampilkanDaftarMasterObat(List<Obat> daftarObat) {
+        System.out.println("\n==================== DAFTAR MASTER OBAT ====================");
+        System.out.printf("| %-8s | %-22s | %-9s | %-5s |%n", "ID Obat", "Nama Obat", "Harga", "Resep");
+        System.out.println("------------------------------------------------------------");
+        for (Obat o : daftarObat) {
+            String nama = o.getNamaObat().length() > 22
+                    ? o.getNamaObat().substring(0, 19) + "..."
+                    : o.getNamaObat();
+            System.out.printf("| %-8s | %-22s | Rp%-7.0f | %-5s |%n",
+                    o.getIdObat(),
+                    nama,
+                    o.getHarga(),
+                    o.isButuhResep() ? "Ya" : "Tidak");
+        }
+        System.out.println("============================================================");
+    }
+
+    private static void tambahObatBaru(Scanner scanner, ObatDAO obatDAO) {
+        try {
+            List<Obat> daftarObat = obatDAO.getAllObat();
+            if (!daftarObat.isEmpty()) {
+                tampilkanDaftarMasterObat(daftarObat);
+            }
+
+            String idObatBaru = obatDAO.generateIdObat();
+            System.out.println("\n=== TAMBAH MASTER DATA OBAT BARU (" + idObatBaru + ") ===");
+            System.out.println("Ketik 'BATAL' kapan saja untuk kembali ke menu utama.");
+
+            // 1. Nama obat
+            String namaObat;
+            while (true) {
+                System.out.print("Nama Obat: ");
+                namaObat = scanner.nextLine().trim();
+                if (namaObat.equalsIgnoreCase("BATAL")) {
+                    System.out.println("Penambahan obat dibatalkan.");
+                    return;
+                }
+                if (namaObat.isEmpty()) {
+                    System.out.println("Nama obat tidak boleh kosong.");
+                    continue;
+                }
+                boolean duplikat = false;
+                for (Obat o : daftarObat) {
+                    if (o.getNamaObat().equalsIgnoreCase(namaObat)) {
+                        duplikat = true;
+                        break;
+                    }
+                }
+                if (duplikat) {
+                    System.out.println("Obat dengan nama '" + namaObat + "' sudah terdaftar.");
+                    continue;
+                }
+                break;
+            }
+
+            // 2. Harga satuan
+            double harga;
+            while (true) {
+                System.out.print("Harga Satuan (Rp): ");
+                String hargaInput = scanner.nextLine().trim();
+                if (hargaInput.equalsIgnoreCase("BATAL")) {
+                    System.out.println("Penambahan obat dibatalkan.");
+                    return;
+                }
+                try {
+                    harga = Double.parseDouble(hargaInput);
+                    if (harga <= 0) {
+                        System.out.println("Harga harus lebih dari 0.");
+                        continue;
+                    }
+                    break;
+                } catch (NumberFormatException ex) {
+                    System.out.println("Input harus berupa angka.");
+                }
+            }
+
+            // 3. Status resep dokter
+            boolean butuhResep;
+            while (true) {
+                System.out.print("Butuh Resep Dokter? (y/n): ");
+                String resepInput = scanner.nextLine().trim().toLowerCase();
+                if (resepInput.equals("batal")) {
+                    System.out.println("Penambahan obat dibatalkan.");
+                    return;
+                }
+                if (resepInput.equals("y")) {
+                    butuhResep = true;
+                    break;
+                } else if (resepInput.equals("n")) {
+                    butuhResep = false;
+                    break;
+                } else {
+                    System.out.println("Masukkan 'y' untuk Ya atau 'n' untuk Tidak.");
+                }
+            }
+
+            // 4. Konfirmasi & simpan
+            System.out.printf("Simpan obat %s - %s (Rp%.0f, Resep: %s)? (y/n): ",
+                    idObatBaru, namaObat, harga, butuhResep ? "Ya" : "Tidak");
+            String konfirmasi = scanner.nextLine().trim().toLowerCase();
+            if (!konfirmasi.equals("y")) {
+                System.out.println("Penambahan obat dibatalkan.");
+                return;
+            }
+
+            Obat obatBaru = new Obat(idObatBaru, namaObat, harga, butuhResep);
+            obatDAO.tambahObat(obatBaru);
+            System.out.println("Master obat " + idObatBaru + " (" + namaObat + ") berhasil ditambahkan!");
+
+        } catch (SQLException ex) {
+            System.err.println("Gagal menambahkan obat baru: " + ex.getMessage());
+        }
+    }
+
+    private static void updateObat(Scanner scanner, ObatDAO obatDAO) {
+        try {
+            List<Obat> daftarObat = obatDAO.getAllObat();
+            if (daftarObat.isEmpty()) {
+                System.out.println("Belum ada data master obat di database.");
+                return;
+            }
+
+            tampilkanDaftarMasterObat(daftarObat);
+
+            System.out.println("\n=== UPDATE MASTER DATA OBAT ===");
+            System.out.println("Ketik 'BATAL' kapan saja untuk kembali ke menu utama.");
+            System.out.println("Tekan ENTER (kosongkan) untuk mempertahankan nilai lama.");
+
+            // 1. Pilih ID Obat
+            Obat obatLama = null;
+            while (obatLama == null) {
+                System.out.print("\nMasukkan ID Obat yang akan diupdate: ");
+                String inputObat = scanner.nextLine().trim().toUpperCase();
+                if (inputObat.equals("BATAL")) {
+                    System.out.println("Update obat dibatalkan.");
+                    return;
+                }
+                for (Obat o : daftarObat) {
+                    if (o.getIdObat().equalsIgnoreCase(inputObat)) {
+                        obatLama = o;
+                        break;
+                    }
+                }
+                if (obatLama == null) {
+                    System.out.println("ID Obat '" + inputObat + "' tidak ditemukan.");
+                }
+            }
+
+            String resepLamaStr = obatLama.isButuhResep() ? "y" : "n";
+            System.out.println("\nData saat ini:");
+            System.out.println("  Nama Obat   : " + obatLama.getNamaObat());
+            System.out.printf("  Harga       : Rp%.0f%n", obatLama.getHarga());
+            System.out.println("  Butuh Resep : " + (obatLama.isButuhResep() ? "Ya" : "Tidak"));
+
+            // 2. Nama obat baru (opsional)
+            System.out.print("Nama Obat baru [" + obatLama.getNamaObat() + "]: ");
+            String namaBaru = scanner.nextLine().trim();
+            if (namaBaru.equalsIgnoreCase("BATAL")) {
+                System.out.println("Update obat dibatalkan.");
+                return;
+            }
+            if (namaBaru.isEmpty()) {
+                namaBaru = obatLama.getNamaObat();
+            }
+
+            // 3. Harga baru (opsional)
+            double hargaBaru;
+            while (true) {
+                System.out.printf("Harga baru [%.0f]: ", obatLama.getHarga());
+                String hargaInput = scanner.nextLine().trim();
+                if (hargaInput.equalsIgnoreCase("BATAL")) {
+                    System.out.println("Update obat dibatalkan.");
+                    return;
+                }
+                if (hargaInput.isEmpty()) {
+                    hargaBaru = obatLama.getHarga();
+                    break;
+                }
+                try {
+                    hargaBaru = Double.parseDouble(hargaInput);
+                    if (hargaBaru <= 0) {
+                        System.out.println("Harga harus lebih dari 0.");
+                        continue;
+                    }
+                    break;
+                } catch (NumberFormatException ex) {
+                    System.out.println("Input harus berupa angka.");
+                }
+            }
+
+            // 4. Status resep baru (opsional)
+            boolean resepBaru;
+            while (true) {
+                System.out.print("Butuh Resep? (y/n) [" + resepLamaStr + "]: ");
+                String resepInput = scanner.nextLine().trim().toLowerCase();
+                if (resepInput.equals("batal")) {
+                    System.out.println("Update obat dibatalkan.");
+                    return;
+                }
+                if (resepInput.isEmpty()) {
+                    resepBaru = obatLama.isButuhResep();
+                    break;
+                } else if (resepInput.equals("y")) {
+                    resepBaru = true;
+                    break;
+                } else if (resepInput.equals("n")) {
+                    resepBaru = false;
+                    break;
+                } else {
+                    System.out.println("Masukkan 'y' untuk Ya atau 'n' untuk Tidak.");
+                }
+            }
+
+            // 5. Cek apakah ada perubahan
+            boolean samaNama = namaBaru.equals(obatLama.getNamaObat());
+            boolean samaHarga = Double.compare(hargaBaru, obatLama.getHarga()) == 0;
+            boolean samaResep = resepBaru == obatLama.isButuhResep();
+            if (samaNama && samaHarga && samaResep) {
+                System.out.println("Tidak ada perubahan data. Update dibatalkan.");
+                return;
+            }
+
+            // 6. Konfirmasi & simpan
+            System.out.println("\nRingkasan perubahan obat " + obatLama.getIdObat() + ":");
+            System.out.println("  Nama Obat   : " + obatLama.getNamaObat() + " -> " + namaBaru);
+            System.out.printf("  Harga       : Rp%.0f -> Rp%.0f%n", obatLama.getHarga(), hargaBaru);
+            System.out.println("  Butuh Resep : " + (obatLama.isButuhResep() ? "Ya" : "Tidak")
+                    + " -> " + (resepBaru ? "Ya" : "Tidak"));
+            System.out.print("Simpan perubahan? (y/n): ");
+            String konfirmasi = scanner.nextLine().trim().toLowerCase();
+            if (!konfirmasi.equals("y")) {
+                System.out.println("Update obat dibatalkan.");
+                return;
+            }
+
+            Obat obatUpdated = new Obat(obatLama.getIdObat(), namaBaru, hargaBaru, resepBaru);
+            boolean berhasil = obatDAO.updateObat(obatUpdated);
+            if (berhasil) {
+                System.out.println("Data obat " + obatLama.getIdObat() + " berhasil diupdate!");
+            } else {
+                System.out.println("Gagal update: data obat tidak ditemukan di database.");
+            }
+
+        } catch (SQLException ex) {
+            System.err.println("Gagal mengupdate obat: " + ex.getMessage());
+        }
+    }
+
+    private static void hapusObat(Scanner scanner, ObatDAO obatDAO) {
+        try {
+            List<Obat> daftarObat = obatDAO.getAllObat();
+            if (daftarObat.isEmpty()) {
+                System.out.println("Belum ada data master obat di database.");
+                return;
+            }
+
+            tampilkanDaftarMasterObat(daftarObat);
+
+            System.out.println("\n=== HAPUS MASTER DATA OBAT ===");
+            System.out.println("Ketik ID Obat (misal: OBT-016), atau 'BATAL' untuk kembali ke menu.");
+
+            // 1. Pilih ID Obat
+            Obat obatDipilih = null;
+            while (obatDipilih == null) {
+                System.out.print("\nMasukkan ID Obat yang akan dihapus: ");
+                String inputObat = scanner.nextLine().trim().toUpperCase();
+                if (inputObat.equals("BATAL")) {
+                    System.out.println("Penghapusan obat dibatalkan.");
+                    return;
+                }
+                for (Obat o : daftarObat) {
+                    if (o.getIdObat().equalsIgnoreCase(inputObat)) {
+                        obatDipilih = o;
+                        break;
+                    }
+                }
+                if (obatDipilih == null) {
+                    System.out.println("ID Obat '" + inputObat + "' tidak ditemukan.");
+                }
+            }
+
+            // 2. Detail & konfirmasi
+            System.out.println("\nData obat yang akan dihapus:");
+            System.out.println("  ID Obat     : " + obatDipilih.getIdObat());
+            System.out.println("  Nama Obat   : " + obatDipilih.getNamaObat());
+            System.out.printf("  Harga       : Rp%.0f%n", obatDipilih.getHarga());
+            System.out.println("  Butuh Resep : " + (obatDipilih.isButuhResep() ? "Ya" : "Tidak"));
+
+            System.out.print("Yakin hapus master obat " + obatDipilih.getIdObat() + "? (y/n): ");
+            String konfirmasi = scanner.nextLine().trim().toLowerCase();
+            if (!konfirmasi.equals("y")) {
+                System.out.println("Penghapusan obat dibatalkan.");
+                return;
+            }
+
+            // 3. Hapus dari database
+            boolean berhasil = obatDAO.hapusObat(obatDipilih.getIdObat());
+            if (berhasil) {
+                System.out.println("Master obat " + obatDipilih.getIdObat() + " berhasil dihapus.");
+            } else {
+                System.out.println("Gagal menghapus: data obat tidak ditemukan di database.");
+            }
+
+        } catch (SQLException ex) {
+            if (ex.getSQLState() != null && ex.getSQLState().startsWith("23")) {
+                System.out.println("Obat tidak bisa dihapus karena masih memiliki data batch/stok di gudang.");
+            } else {
+                System.err.println("Gagal menghapus obat: " + ex.getMessage());
+            }
+        }
     }
 
     private static void tambahBatchBaru(Scanner scanner, BatchObatDAO batchObatDAO) {
